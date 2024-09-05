@@ -17,6 +17,8 @@ in
 appimageTools.wrapType2 rec {
   inherit pname version src;
 
+  extraPkgs = pkgs: [ pkgs.dejavu_fonts ];
+
   extraInstallCommands = ''
     install -m 444 -D ${appimageContents}/${pname}.desktop $out/share/applications/${pname}.desktop
     install -m 444 -D ${appimageContents}/${pname}.png $out/share/icons/hicolor/512x512/apps/${pname}.png
