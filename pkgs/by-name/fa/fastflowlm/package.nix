@@ -3,6 +3,7 @@
   stdenv,
   fetchFromGitHub,
   cmake,
+  ninja,
   pkg-config,
   rustPlatform,
   cargo,
@@ -19,19 +20,19 @@
   libdrm,
   libuuid,
   libgcc,
-  xrt-lib-with-xdna,
 }:
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "fastflowlm";
-  version = "0.9.34-unstable-2026-02-28";
+  version = "0.9.37";
 
   src = fetchFromGitHub {
     owner = "FastFlowLM";
     repo = "FastFlowLM";
-    rev = "bac4f5e672bd2917089fb21b5ebf4cd9f67eeaec";
+    #tag = "v${finalAttrs.version}";
+    rev = "464cf8d7aa9fe55bb8f0d139d1c80d43bc4cbd9e"; #FIXME tag missing
     fetchSubmodules = true;
-    hash = "sha256-MHKjS3bI/u14FRKwKdOkC0122fqqAnFDi70I9dLP7KQ=";
+    hash = "sha256-an/LrlnQ3moFVJQ1xpfgg3npzt1FI6HLZPDycfTNNrk=";
   };
 
   postPatch = ''
@@ -46,20 +47,13 @@ stdenv.mkDerivation (finalAttrs: {
 
   sourceRoot = "${finalAttrs.src.name}/src";
 
-  cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit (finalAttrs)
-      pname
-      version
-      src
-      postPatch
-      sourceRoot
-      cargoRoot
-      ;
-    hash = "sha256-lpuGPco7P4k6T5wtEDzhXn6DJqiM3U/DiUhrsae9NuI=";
+  cargoDeps = rustPlatform.importCargoLock {
+    lockFile = ./Cargo.lock;
   };
 
   nativeBuildInputs = [
     cmake
+    ninja
     pkg-config
     rustPlatform.cargoSetupHook
     cargo
@@ -81,11 +75,14 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   cmakeFlags = [
-    (lib.cmakeFeature "XRT_INCLUDE_DIR" "${lib.getDev xrt}/include")
-    (lib.cmakeFeature "XRT_LIB_DIR" "${xrt-lib-with-xdna}/lib")
+    "--preset linux-default"
 
-    # CMake didn't set this default value so the program
-    # doesn't know where to find XCLBIN (to remove in future release?)
+    # fix: "CMake was unable to find a build program corresponding to "Ninja"."
+    (lib.cmakeFeature "CMAKE_MAKE_PROGRAM" "ninja")
+
+    (lib.cmakeFeature "XRT_INCLUDE_DIR" "${lib.getInclude xrt}/include")
+    (lib.cmakeFeature "XRT_LIB_DIR" "${lib.getLib xrt}/lib")
+
     (lib.cmakeFeature "CMAKE_XCLBIN_PREFIX" "${placeholder "out"}/share/flm")
   ];
 
@@ -100,7 +97,10 @@ stdenv.mkDerivation (finalAttrs: {
       mit
       unfree # for blobs
     ];
-    maintainers = with lib.maintainers; [ aleksana ];
+    maintainers = with lib.maintainers; [
+      aleksana
+      zi3m5f
+    ];
     mainProgram = "flm";
     platforms = [ "x86_64-linux" ];
     sourceProvenance = with lib.sourceTypes; [
